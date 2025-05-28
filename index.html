@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, user-scalable=no"
     />
-    <title>Abstract Generative Animation - Fullscreen & Smooth Movement</title>
+    <title>Abstract Generative Animation - Controllable Turbulence</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
     <style>
       /* Basic styling for the page */
@@ -20,14 +20,67 @@
         justify-content: center;
         align-items: center;
         min-height: 100vh;
+        position: relative; /* For positioning the slider */
       }
       /* Styling for the canvas element itself */
       canvas {
         display: block; /* Removes extra space below canvas */
       }
+      /* Styling for the turbulence slider */
+      #turbulenceSlider {
+        position: absolute;
+        left: 25px; /* Distance from the left edge */
+        top: 50%; /* Center vertically */
+        transform: translateY(-50%) rotate(270deg); /* Rotate to be vertical */
+        transform-origin: left top; /* Rotate around the top-left corner */
+        width: 150px; /* Length of the slider */
+        height: 20px; /* Thickness of the slider track */
+        z-index: 10; /* Ensure it's above the canvas */
+        background: rgba(255, 255, 255, 0.1); /* Semi-transparent background */
+        border-radius: 10px;
+        -webkit-appearance: none; /* Override default appearance */
+        appearance: none;
+      }
+
+      #turbulenceSlider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 25px; /* Width of the thumb */
+        height: 25px; /* Height of the thumb */
+        background: #4caf50; /* Green thumb */
+        cursor: pointer;
+        border-radius: 50%;
+        border: 2px solid #fff;
+      }
+
+      #turbulenceSlider::-moz-range-thumb {
+        width: 25px;
+        height: 25px;
+        background: #4caf50;
+        cursor: pointer;
+        border-radius: 50%;
+        border: 2px solid #fff;
+      }
+
+      /* Label for the slider */
+      #sliderLabel {
+        position: absolute;
+        /* Slider's visual X-range [25px, 45px]. Visual Y-range [50%-160px, 50%-10px] */
+        left: 25px; /* Align with slider's left edge */
+        top: calc(
+          50% - 10px + 15px
+        ); /* Slider's visual bottom is at 50%-10px. Add 15px padding. So, 50%+5px */
+        color: #ccc;
+        font-size: 12px;
+        z-index: 10;
+        /* Removed writing-mode, text-orientation, and transform for simple horizontal text */
+      }
     </style>
   </head>
   <body>
+    <label id="sliderLabel" for="turbulenceSlider">Turbulence</label>
+    <input type="range" id="turbulenceSlider" min="1" max="200" value="50" />
+
     <script>
       // Global variable for time, a core component of the animation
       let t;
@@ -37,15 +90,21 @@
       // Perlin noise variables for smooth movement
       let noiseTimeX;
       let noiseTimeY;
-      let noiseIncrement = 0.005; // How fast to move through noise space
+      // let noiseIncrement = 0.005; // Base value, will be controlled by slider
 
       // Approximate radius of the jellyfish pattern to keep it on screen
       const jellyfishRadius = 220; // Adjust if needed based on visual size
+
+      // Slider element
+      let turbulenceSliderEl;
 
       // p5.js setup function: runs once when the program starts
       function setup() {
         // Create a canvas that fills the entire window
         createCanvas(windowWidth, windowHeight);
+
+        // Get the slider element
+        turbulenceSliderEl = document.getElementById("turbulenceSlider");
 
         // Initialize the global time variable for the pattern's internal animation
         t = 0;
@@ -55,7 +114,6 @@
         noiseTimeY = random(2000); // Start at a different random point
 
         // Initialize the jellyfish's starting position using noise to avoid starting at an edge
-        // This ensures it starts within the constrained area.
         offsetX = map(
           noise(noiseTimeX),
           0,
@@ -70,9 +128,6 @@
           jellyfishRadius,
           height - jellyfishRadius
         );
-
-        // Configure noise characteristics (optional, but can affect smoothness)
-        // noiseDetail(4, 0.5); // (lod, falloff) - experiment with these values
       }
 
       // The core drawing function 'a' from the original tweet, translated to JS
@@ -101,12 +156,17 @@
         // Increment time for internal animation of the jellyfish structure
         t += PI / 45;
 
+        // Get turbulence value from slider
+        // Slider range is 1-200. Map this to a suitable noiseIncrement range.
+        // Example: map(sliderValue, 1, 200, 0.0001, 0.02)
+        let sliderValue = parseFloat(turbulenceSliderEl.value);
+        let currentNoiseIncrement = map(sliderValue, 1, 200, 0.0001, 0.015);
+
         // Update Perlin noise time offsets
-        noiseTimeX += noiseIncrement;
-        noiseTimeY += noiseIncrement;
+        noiseTimeX += currentNoiseIncrement;
+        noiseTimeY += currentNoiseIncrement;
 
         // Calculate new target position using Perlin noise for smooth movement
-        // Map noise output (0-1) to the allowed screen area, considering the radius
         let targetX = map(
           noise(noiseTimeX),
           0,
@@ -122,13 +182,10 @@
           height - jellyfishRadius
         );
 
-        // Smoothly move towards the target position (e.g., using lerp for easing)
-        // A simpler approach for now is to directly set it, as noise is already smooth.
         offsetX = targetX;
         offsetY = targetY;
 
-        // Ensure the jellyfish's center is constrained, effectively keeping it on screen
-        // This is a redundant check if map is used correctly with jellyfishRadius, but good for safety.
+        // Ensure the jellyfish's center is constrained
         offsetX = constrain(offsetX, jellyfishRadius, width - jellyfishRadius);
         offsetY = constrain(offsetY, jellyfishRadius, height - jellyfishRadius);
 
@@ -141,8 +198,6 @@
       // This function is called by p5.js whenever the browser window is resized
       function windowResized() {
         resizeCanvas(windowWidth, windowHeight);
-        // Re-evaluate position constraints based on new window size
-        // This ensures it stays within bounds even after resize.
         offsetX = constrain(
           map(
             noise(noiseTimeX),
