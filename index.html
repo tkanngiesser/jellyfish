@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no"
+    />
+    <title>Abstract Generative Animation - Fullscreen & Smooth Movement</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
+    <style>
+      /* Basic styling for the page */
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #1a1a1a; /* Dark background */
+        font-family: "Inter", sans-serif;
+        overflow: hidden; /* Prevent scrollbars for fullscreen canvas */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+      }
+      /* Styling for the canvas element itself */
+      canvas {
+        display: block; /* Removes extra space below canvas */
+      }
+    </style>
+  </head>
+  <body>
+    <script>
+      // Global variable for time, a core component of the animation
+      let t;
+      // Variables for the jellyfish's center position
+      let offsetX, offsetY;
+
+      // Perlin noise variables for smooth movement
+      let noiseTimeX;
+      let noiseTimeY;
+      let noiseIncrement = 0.005; // How fast to move through noise space
+
+      // Approximate radius of the jellyfish pattern to keep it on screen
+      const jellyfishRadius = 220; // Adjust if needed based on visual size
+
+      // p5.js setup function: runs once when the program starts
+      function setup() {
+        // Create a canvas that fills the entire window
+        createCanvas(windowWidth, windowHeight);
+
+        // Initialize the global time variable for the pattern's internal animation
+        t = 0;
+
+        // Initialize Perlin noise time offsets randomly
+        noiseTimeX = random(1000); // Start at a random point in noise space
+        noiseTimeY = random(2000); // Start at a different random point
+
+        // Initialize the jellyfish's starting position using noise to avoid starting at an edge
+        // This ensures it starts within the constrained area.
+        offsetX = map(
+          noise(noiseTimeX),
+          0,
+          1,
+          jellyfishRadius,
+          width - jellyfishRadius
+        );
+        offsetY = map(
+          noise(noiseTimeY),
+          0,
+          1,
+          jellyfishRadius,
+          height - jellyfishRadius
+        );
+
+        // Configure noise characteristics (optional, but can affect smoothness)
+        // noiseDetail(4, 0.5); // (lod, falloff) - experiment with these values
+      }
+
+      // The core drawing function 'a' from the original tweet, translated to JS
+      function calculatePoint(x_param, y_param) {
+        let k_val = 9 * cos(x_param / 8);
+        let e_val = y_param / 8 - 12.5;
+        let d_calc = (k_val * k_val + e_val * e_val) / 99 + sin(t) / 6 + 0.5;
+        let q_val =
+          99 -
+          (e_val * sin(atan2(k_val, e_val) * 7)) / d_calc +
+          k_val * (3 + cos(d_calc * d_calc - t) * 2);
+        let c_val = d_calc / 2 + e_val / 69 - t / 16;
+
+        point(
+          q_val * sin(c_val) + offsetX,
+          (q_val + 19 * d_calc) * cos(c_val) + offsetY
+        );
+      }
+
+      // p5.js draw function: runs repeatedly, creating the animation frames
+      function draw() {
+        background(9);
+        stroke(255, 66);
+        strokeWeight(1);
+
+        // Increment time for internal animation of the jellyfish structure
+        t += PI / 45;
+
+        // Update Perlin noise time offsets
+        noiseTimeX += noiseIncrement;
+        noiseTimeY += noiseIncrement;
+
+        // Calculate new target position using Perlin noise for smooth movement
+        // Map noise output (0-1) to the allowed screen area, considering the radius
+        let targetX = map(
+          noise(noiseTimeX),
+          0,
+          1,
+          jellyfishRadius,
+          width - jellyfishRadius
+        );
+        let targetY = map(
+          noise(noiseTimeY),
+          0,
+          1,
+          jellyfishRadius,
+          height - jellyfishRadius
+        );
+
+        // Smoothly move towards the target position (e.g., using lerp for easing)
+        // A simpler approach for now is to directly set it, as noise is already smooth.
+        offsetX = targetX;
+        offsetY = targetY;
+
+        // Ensure the jellyfish's center is constrained, effectively keeping it on screen
+        // This is a redundant check if map is used correctly with jellyfishRadius, but good for safety.
+        offsetX = constrain(offsetX, jellyfishRadius, width - jellyfishRadius);
+        offsetY = constrain(offsetY, jellyfishRadius, height - jellyfishRadius);
+
+        // Loop 10,000 times to draw points for the current frame
+        for (let i = 10000; i >= 1; i--) {
+          calculatePoint(i % 200, i / 55);
+        }
+      }
+
+      // This function is called by p5.js whenever the browser window is resized
+      function windowResized() {
+        resizeCanvas(windowWidth, windowHeight);
+        // Re-evaluate position constraints based on new window size
+        // This ensures it stays within bounds even after resize.
+        offsetX = constrain(
+          map(
+            noise(noiseTimeX),
+            0,
+            1,
+            jellyfishRadius,
+            width - jellyfishRadius
+          ),
+          jellyfishRadius,
+          width - jellyfishRadius
+        );
+        offsetY = constrain(
+          map(
+            noise(noiseTimeY),
+            0,
+            1,
+            jellyfishRadius,
+            height - jellyfishRadius
+          ),
+          jellyfishRadius,
+          height - jellyfishRadius
+        );
+      }
+    </script>
+  </body>
+</html>
