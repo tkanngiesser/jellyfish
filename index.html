@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, user-scalable=no"
     />
-    <title>Abstract Generative Animation - Controllable Turbulence</title>
+    <title>Abstract Generative Animation - Customizable Color</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
     <style>
       /* Basic styling for the page */
@@ -20,34 +20,44 @@
         justify-content: center;
         align-items: center;
         min-height: 100vh;
-        position: relative; /* For positioning the slider */
+        position: relative; /* For positioning the controls */
       }
       /* Styling for the canvas element itself */
       canvas {
         display: block; /* Removes extra space below canvas */
       }
+
+      /* Controls Styling */
+      .control-label {
+        position: absolute;
+        left: 25px;
+        color: #ccc;
+        font-size: 12px;
+        z-index: 10;
+      }
+
       /* Styling for the turbulence slider */
       #turbulenceSlider {
         position: absolute;
-        left: 25px; /* Distance from the left edge */
-        top: 50%; /* Center vertically */
-        transform: translateY(-50%) rotate(270deg); /* Rotate to be vertical */
-        transform-origin: left top; /* Rotate around the top-left corner */
-        width: 150px; /* Length of the slider */
-        height: 20px; /* Thickness of the slider track */
-        z-index: 10; /* Ensure it's above the canvas */
-        background: rgba(255, 255, 255, 0.1); /* Semi-transparent background */
+        left: 25px;
+        top: 50%;
+        transform: translateY(-50%) rotate(270deg);
+        transform-origin: left top;
+        width: 150px;
+        height: 20px;
+        z-index: 10;
+        background: rgba(255, 255, 255, 0.1);
         border-radius: 10px;
-        -webkit-appearance: none; /* Override default appearance */
+        -webkit-appearance: none;
         appearance: none;
       }
 
       #turbulenceSlider::-webkit-slider-thumb {
         -webkit-appearance: none;
         appearance: none;
-        width: 25px; /* Width of the thumb */
-        height: 25px; /* Height of the thumb */
-        background: #4caf50; /* Green thumb */
+        width: 25px;
+        height: 25px;
+        background: #4caf50;
         cursor: pointer;
         border-radius: 50%;
         border: 2px solid #fff;
@@ -62,58 +72,71 @@
         border: 2px solid #fff;
       }
 
-      /* Label for the slider */
-      #sliderLabel {
-        position: absolute;
-        /* Slider's visual X-range [25px, 45px]. Visual Y-range [50%-160px, 50%-10px] */
-        left: 25px; /* Align with slider's left edge */
+      #turbulenceLabel {
+        /* Slider's visual Y-range [50%-160px, 50%-10px] */
         top: calc(
           50% - 10px + 15px
         ); /* Slider's visual bottom is at 50%-10px. Add 15px padding. So, 50%+5px */
-        color: #ccc;
-        font-size: 12px;
+      }
+
+      #colorPickerLabel {
+        top: calc(
+          50% + 5px + 20px + 5px
+        ); /* Below turbulence label + its height + padding */
+        /* (50% + 5px) + 12px (font) + ~5px (line-height space) + 10px (padding) = 50% + 32px */
+      }
+
+      #jellyfishColorPicker {
+        position: absolute;
+        left: 25px;
+        top: calc(
+          50% + 32px + 12px + 5px
+        ); /* Below color picker label + its height + padding */
+        /* (50% + 32px) + 12px (font) + ~5px (line-height space) + 5px (padding) = 50% + 54px */
+        width: 100px; /* Adjust width as needed */
+        height: 25px;
+        border: 1px solid #555;
+        padding: 0; /* Color input usually handles its own padding/appearance */
+        background-color: #333; /* Background for the input box if browser default is not good */
         z-index: 10;
-        /* Removed writing-mode, text-orientation, and transform for simple horizontal text */
+        cursor: pointer;
       }
     </style>
   </head>
   <body>
-    <label id="sliderLabel" for="turbulenceSlider">Turbulence</label>
+    <label id="turbulenceLabel" class="control-label" for="turbulenceSlider"
+      >Turbulence</label
+    >
     <input type="range" id="turbulenceSlider" min="1" max="200" value="50" />
 
+    <label
+      id="colorPickerLabel"
+      class="control-label"
+      for="jellyfishColorPicker"
+      >Color</label
+    >
+    <input type="color" id="jellyfishColorPicker" value="#FFFFFF" />
     <script>
-      // Global variable for time, a core component of the animation
-      let t;
-      // Variables for the jellyfish's center position
-      let offsetX, offsetY;
+      let t; // Global time for pattern animation
+      let offsetX, offsetY; // Jellyfish position
 
-      // Perlin noise variables for smooth movement
-      let noiseTimeX;
-      let noiseTimeY;
-      // let noiseIncrement = 0.005; // Base value, will be controlled by slider
+      let noiseTimeX, noiseTimeY; // For Perlin noise movement
+      const jellyfishRadius = 220; // Approximate visual radius
 
-      // Approximate radius of the jellyfish pattern to keep it on screen
-      const jellyfishRadius = 220; // Adjust if needed based on visual size
-
-      // Slider element
+      // UI Elements
       let turbulenceSliderEl;
+      let colorPickerEl;
 
-      // p5.js setup function: runs once when the program starts
       function setup() {
-        // Create a canvas that fills the entire window
         createCanvas(windowWidth, windowHeight);
 
-        // Get the slider element
         turbulenceSliderEl = document.getElementById("turbulenceSlider");
+        colorPickerEl = document.getElementById("jellyfishColorPicker");
 
-        // Initialize the global time variable for the pattern's internal animation
         t = 0;
+        noiseTimeX = random(1000);
+        noiseTimeY = random(2000);
 
-        // Initialize Perlin noise time offsets randomly
-        noiseTimeX = random(1000); // Start at a random point in noise space
-        noiseTimeY = random(2000); // Start at a different random point
-
-        // Initialize the jellyfish's starting position using noise to avoid starting at an edge
         offsetX = map(
           noise(noiseTimeX),
           0,
@@ -130,7 +153,6 @@
         );
       }
 
-      // The core drawing function 'a' from the original tweet, translated to JS
       function calculatePoint(x_param, y_param) {
         let k_val = 9 * cos(x_param / 8);
         let e_val = y_param / 8 - 12.5;
@@ -147,26 +169,26 @@
         );
       }
 
-      // p5.js draw function: runs repeatedly, creating the animation frames
       function draw() {
         background(9);
-        stroke(255, 66);
+
+        // Get current color from picker
+        let hexColor = colorPickerEl.value;
+        let jellyfishColor = color(hexColor); // p5.js color object from hex
+        jellyfishColor.setAlpha(66); // Set the original alpha value for transparency
+
+        stroke(jellyfishColor);
         strokeWeight(1);
 
-        // Increment time for internal animation of the jellyfish structure
-        t += PI / 45;
+        t += PI / 45; // Internal animation
 
-        // Get turbulence value from slider
-        // Slider range is 1-200. Map this to a suitable noiseIncrement range.
-        // Example: map(sliderValue, 1, 200, 0.0001, 0.02)
+        // Turbulence / Movement
         let sliderValue = parseFloat(turbulenceSliderEl.value);
         let currentNoiseIncrement = map(sliderValue, 1, 200, 0.0001, 0.015);
 
-        // Update Perlin noise time offsets
         noiseTimeX += currentNoiseIncrement;
         noiseTimeY += currentNoiseIncrement;
 
-        // Calculate new target position using Perlin noise for smooth movement
         let targetX = map(
           noise(noiseTimeX),
           0,
@@ -182,20 +204,17 @@
           height - jellyfishRadius
         );
 
-        offsetX = targetX;
+        offsetX = targetX; // Directly set, or lerp for even smoother transition
         offsetY = targetY;
 
-        // Ensure the jellyfish's center is constrained
         offsetX = constrain(offsetX, jellyfishRadius, width - jellyfishRadius);
         offsetY = constrain(offsetY, jellyfishRadius, height - jellyfishRadius);
 
-        // Loop 10,000 times to draw points for the current frame
         for (let i = 10000; i >= 1; i--) {
           calculatePoint(i % 200, i / 55);
         }
       }
 
-      // This function is called by p5.js whenever the browser window is resized
       function windowResized() {
         resizeCanvas(windowWidth, windowHeight);
         offsetX = constrain(
